@@ -18,7 +18,10 @@ from datetime import datetime, date, timedelta, timezone
 from typing import Optional, List
 
 import bcrypt
-import razorpay
+# Razorpay temporarily disabled — was crashing Railway deploys (pkg_resources
+# ModuleNotFoundError from the razorpay package on Python 3.13). Re-add once
+# we're ready to wire up real payments; see stubbed endpoints below.
+# import razorpay
 from jose import JWTError, jwt
 
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -40,8 +43,8 @@ from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
 # =========================================================================
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql://postgres:PMJjBZSQMxtNLQRuOKWKadwaWeMmErQV@trolley.proxy.rlwy.net:41197/railway"
-    secret_key: str = "vvback-production.up.railway.app"
+    database_url: str = "postgresql://postgres:postgres@localhost:5432/vivahverse"
+    secret_key: str = "change-this-in-railway-env-vars-to-something-random"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     razorpay_key_id: str = ""
@@ -947,8 +950,7 @@ def get_booking(
 # PAYMENT ENDPOINTS (Razorpay)
 # =========================================================================
 
-def get_razorpay_client():
-    return razorpay.Client(auth=(settings.razorpay_key_id, settings.razorpay_key_secret))
+PAYMENTS_ENABLED = False  # flip on once razorpay is reinstated
 
 
 @app.post("/payments/create-order", response_model=PaymentOut, status_code=201, tags=["Payments"])
@@ -957,24 +959,20 @@ def create_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_customer),
 ):
+    if not PAYMENTS_ENABLED:
+        raise HTTPException(status_code=501, detail="Online payments are coming soon. Please contact us to confirm your booking for now.")
+
     booking = db.query(Booking).filter(
         Booking.id == payload.booking_id, Booking.customer_id == current_user.id
     ).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
 
-    client = get_razorpay_client()
-    order = client.order.create({
-        "amount": int(payload.amount * 100),  # paise
-        "currency": "INR",
-        "notes": {"booking_id": booking.id},
-    })
-
     payment = Payment(
         booking_id=booking.id,
         amount=payload.amount,
         provider="razorpay",
-        provider_order_id=order["id"],
+        provider_order_id=None,
         status=PaymentStatus.PENDING,
     )
     db.add(payment)
@@ -989,6 +987,9 @@ def verify_payment(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_customer),
 ):
+    if not PAYMENTS_ENABLED:
+        raise HTTPException(status_code=501, detail="Online payments are coming soon.")
+
     payment = db.query(Payment).filter(
         Payment.provider_order_id == payload.razorpay_order_id
     ).first()
