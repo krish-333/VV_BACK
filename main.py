@@ -70,6 +70,11 @@ settings = Settings()
 db_url = settings.database_url
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
+# Use the psycopg3 dialect explicitly — psycopg2-binary has no prebuilt wheel
+# for Python 3.13 on Railway's image, which caused the libpq.so.5 crash.
+# psycopg[binary] (v3) ships a self-contained wheel that bundles libpq.
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
 engine = create_engine(db_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
