@@ -40,8 +40,8 @@ from sqlalchemy.orm import sessionmaker, declarative_base, relationship, Session
 # =========================================================================
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/vivahverse"
-    secret_key: str = "change-this-in-railway-env-vars-to-something-random"
+    database_url: str = "postgresql://postgres:PMJjBZSQMxtNLQRuOKWKadwaWeMmErQV@trolley.proxy.rlwy.net:41197/railway"
+    secret_key: str = "vvback-production.up.railway.app"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     razorpay_key_id: str = ""
